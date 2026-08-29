@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { declinationForCalendarDay } from './astronomy';
 
 export type ViewMode = 'equator' | 'north' | 'south';
@@ -178,31 +181,36 @@ function makeLatitudeGuide(latitude: number, kind: 'degree' | 'tropic' | 'equato
   const surfaceRadius = 1.013;
   const ringRadius = Math.cos(radians) * surfaceRadius;
   if (kind === 'tropic') {
-    const points: THREE.Vector3[] = [];
+    const positions: number[] = [];
     for (let segment = 0; segment <= 192; segment += 1) {
       const angle = segment / 192 * Math.PI * 2;
-      points.push(new THREE.Vector3(
+      positions.push(
         Math.cos(angle) * ringRadius,
         Math.sin(radians) * surfaceRadius,
         Math.sin(angle) * ringRadius,
-      ));
+      );
     }
-    const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(points),
-      new THREE.LineDashedMaterial({
+    const geometry = new LineGeometry();
+    geometry.setPositions(positions);
+    const line = new Line2(
+      geometry,
+      new LineMaterial({
         color: 0xff9a61,
+        linewidth: 2.6,
+        dashed: true,
         transparent: true,
         opacity: .9,
         dashSize: .042,
         gapSize: .028,
         depthWrite: false,
+        alphaToCoverage: true,
       }),
     );
     line.computeLineDistances();
     return line;
   }
   const tubeRadius = kind === 'equator' ? .006 : .0027;
-  const color = kind === 'equator' ? 0x39e3ff : 0x78bfd2;
+  const color = kind === 'equator' ? 0xffa63d : 0x78bfd2;
   const opacity = kind === 'equator' ? .9 : .48;
   const material = new THREE.MeshBasicMaterial({
     color,
@@ -393,14 +401,24 @@ export default function EarthScene(props: EarthSceneProps) {
     northCap.position.y = 1.06;
     tiltGroup.add(northCap);
 
-    const terminatorPoints: THREE.Vector3[] = [];
+    const terminatorPositions: number[] = [];
     for (let index = 0; index <= 180; index += 1) {
       const angle = index / 180 * Math.PI * 2;
-      terminatorPoints.push(new THREE.Vector3(Math.cos(angle) * 1.012, Math.sin(angle) * 1.012, 0));
+      terminatorPositions.push(Math.cos(angle) * 1.012, Math.sin(angle) * 1.012, 0);
     }
-    const terminator = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(terminatorPoints),
-      new THREE.LineBasicMaterial({ color: 0x67ddff, transparent: true, opacity: .58, depthTest: true }),
+    const terminatorGeometry = new LineGeometry();
+    terminatorGeometry.setPositions(terminatorPositions);
+    const terminator = new Line2(
+      terminatorGeometry,
+      new LineMaterial({
+        color: 0x67ddff,
+        linewidth: 3.3,
+        transparent: true,
+        opacity: .68,
+        depthTest: true,
+        depthWrite: false,
+        alphaToCoverage: true,
+      }),
     );
     scene.add(terminator);
 
@@ -681,6 +699,8 @@ export default function EarthScene(props: EarthSceneProps) {
         ring.geometry.dispose();
         (ring.material as THREE.Material).dispose();
       });
+      terminator.geometry.dispose();
+      terminator.material.dispose();
       directPointArrow.line.geometry.dispose();
       directArrowLineMaterial.dispose();
       directPointArrow.cone.geometry.dispose();
