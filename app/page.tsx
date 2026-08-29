@@ -230,9 +230,7 @@ export default function Home() {
           <span aria-hidden="true">☰</span> 控制台
         </button>
         <div className="header-center">
-          <div className="eyebrow"><span /> ANALOG SYSTEM ACTIVE · EARTH LAB 01 <span /></div>
           <h1><i aria-hidden="true">◉</i> 地球自转与昼夜交替</h1>
-          <p>真实大小 · 真实比例 · 真实运动　|　鼠标 360° 任意视角　|　键盘 A / D 左右旋转</p>
         </div>
         <div className="system-status"><i /> 模拟运行中</div>
       </header>
@@ -243,8 +241,7 @@ export default function Home() {
         <aside ref={panelRef} id="control-panel" className={`control-panel ${controlsOpen ? 'open' : ''}`} aria-label="模拟控制面板">
           <button ref={closeButtonRef} className="drawer-close" type="button" aria-label="关闭控制台" onClick={() => setControlsOpen(false)}>×</button>
           <div className="panel-heading">
-            <div><span className="panel-kicker">ORBITAL CONSOLE</span><h2>观察控制台</h2></div>
-            <span className="panel-code">01 / GEO</span>
+            <h2>观察控制台</h2>
           </div>
 
           <div className="control-section">
@@ -331,7 +328,7 @@ export default function Home() {
           </button>
 
           <div className="astro-card" role="status" aria-live={annualPlaying ? 'off' : 'polite'}>
-            <div className="astro-head"><div><i /> 实时天文参数</div><span>LIVE DATA</span></div>
+            <div className="astro-head"><div><i /> 实时天文参数</div></div>
             <dl>
               <div><dt>太阳直射点纬度</dt><dd className="primary-value">{formatDeclination(astronomy.declination)}</dd></div>
               <div><dt>季节阶段</dt><dd>{astronomy.halfYear}</dd></div>
@@ -348,7 +345,7 @@ export default function Home() {
           <div className="stage-toolbar">
             <div className="view-indicator"><i /> 当前视角 <strong>{activeView === 'free' ? '自由视角' : VIEW_LABELS[activeView]}</strong></div>
             <div className="interaction-hints" aria-label="交互提示">
-              <span>↔ 拖拽旋转</span><span>⌁ 滚轮缩放</span><span><kbd>A</kbd><kbd>D</kbd> 左右观察</span>
+              <span>↔ 拖拽旋转</span><span>⌁ 滚轮缩放</span>
             </div>
           </div>
 
@@ -365,13 +362,12 @@ export default function Home() {
 
           <div className="stage-note"><span className="pulse" /><div><strong>{term} · {formatDeclination(astronomy.declination)}</strong><p>{astronomy.note}</p></div></div>
           <div className="axis-badge"><span>23.5°</span><small>地轴倾角固定</small></div>
-          <div className="texture-credit">EARTH IMAGERY · NASA / GSFC</div>
           <div className="scale-markers" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         </div>
       </section>
 
       <footer className="timeline" aria-label="二十四节气时间轴">
-        <div className="timeline-meta"><span>ORBITAL POSITION</span><strong>{progress.toFixed(1)}%</strong></div>
+        <div className="timeline-meta"><strong>{progress.toFixed(1)}%</strong></div>
         <div className="timeline-main">
           <input
             className="timeline-range"
