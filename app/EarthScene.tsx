@@ -425,14 +425,15 @@ export default function EarthScene(props: EarthSceneProps) {
     });
     const orbit = new THREE.Group();
     scene.add(orbit);
-    const orbitPoints = Array.from({length: 257}, (_, i) => new THREE.Vector3(-4*Math.sin(i/256*Math.PI*2), 0, -4*Math.cos(i/256*Math.PI*2)));
+    const orbitRadius = 5;
+    const orbitPoints = Array.from({length: 257}, (_, i) => new THREE.Vector3(-orbitRadius*Math.sin(i/256*Math.PI*2), 0, -orbitRadius*Math.cos(i/256*Math.PI*2)));
     orbit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPoints), new THREE.LineBasicMaterial({color: 0x647c9c})));
-    const sunRadius = 1.9;
+    const sunRadius = 1.5;
     const solarSun = createSun(sunRadius);
     orbit.add(solarSun.group);
     const orbitRay = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 3, 0xffb347, .18, .10);
     orbit.add(orbitRay);
-    const orbitArrow = new THREE.ArrowHelper(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-4), .7, 0xa2b6d1, .18, .1);
+    const orbitArrow = new THREE.ArrowHelper(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-orbitRadius), .7, 0xa2b6d1, .18, .1);
     orbit.add(orbitArrow);
     let lastSolar: boolean | null = null;
 
@@ -514,7 +515,7 @@ export default function EarthScene(props: EarthSceneProps) {
 
     const viewTarget = (mode: ViewMode) => {
       if (configRef.current.solar) {
-        desiredPosition.set(6, 8, 10);
+        desiredPosition.set(7.2, 9.6, 12);
         desiredUp.set(0, 1, 0);
       } else if (mode === 'north') {
         desiredPosition.copy(axisDirection).multiplyScalar(4.15);
@@ -597,12 +598,12 @@ export default function EarthScene(props: EarthSceneProps) {
         controls.minDistance = config.solar ? 9 : 2.45;
         controls.maxDistance = config.solar ? 26 : 6;
         cameraMove = null;
-        camera.position.set(...(config.solar ? [6,8,10] : [0,.15,4.25]) as [number,number,number]);
+        camera.position.set(...(config.solar ? [7.2,9.6,12] : [0,.15,4.25]) as [number,number,number]);
         camera.up.set(0,1,0);
         controls.update();
       }
       orbit.visible = config.solar;
-      earthSystem.position.set(...(config.solar ? orbitPosition(config.day) : [0,0,0]) as Vector);
+      earthSystem.position.set(...(config.solar ? orbitPosition(config.day, orbitRadius) : [0,0,0]) as Vector);
       if (config.viewRequest !== lastViewRequest) {
         lastViewRequest = config.viewRequest;
         viewTarget(config.view);
@@ -657,7 +658,7 @@ export default function EarthScene(props: EarthSceneProps) {
       });
       orbitRay.position.copy(earthSystem.position).normalize().multiplyScalar(sunRadius + .05);
       orbitRay.setDirection(earthSystem.position.clone().normalize());
-      orbitRay.setLength(4 - sunRadius - 1.07, .16, .08);
+      orbitRay.setLength(orbitRadius - sunRadius - 1.07, .16, .08);
       sunlightRays.forEach(({arrow}) => { arrow.visible = !config.solar; });
       sunMarker.visible = !config.solar;
       const incomingDirection = sunDirection.clone().negate();
