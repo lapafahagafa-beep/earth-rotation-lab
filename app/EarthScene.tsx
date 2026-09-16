@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { createSun } from './sun';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
@@ -426,8 +427,9 @@ export default function EarthScene(props: EarthSceneProps) {
     scene.add(orbit);
     const orbitPoints = Array.from({length: 257}, (_, i) => new THREE.Vector3(-4*Math.sin(i/256*Math.PI*2), 0, -4*Math.cos(i/256*Math.PI*2)));
     orbit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPoints), new THREE.LineBasicMaterial({color: 0x647c9c})));
-    const solarSun = new THREE.Mesh(new THREE.SphereGeometry(.5, 48, 32), new THREE.MeshBasicMaterial({color: 0xffbf43}));
-    orbit.add(solarSun);
+    const sunRadius = 1.9;
+    const solarSun = createSun(sunRadius);
+    orbit.add(solarSun.group);
     const orbitRay = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 3, 0xffb347, .18, .10);
     orbit.add(orbitRay);
     const orbitArrow = new THREE.ArrowHelper(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-4), .7, 0xa2b6d1, .18, .1);
@@ -462,8 +464,8 @@ export default function EarthScene(props: EarthSceneProps) {
     const directTargetPosition = new THREE.Vector3(1.022, 0, 0);
     const surfaceNormal = new THREE.Vector3(0, 0, 1);
 
-    const sunMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0xffad62 });
-    const sunMarker = new THREE.Mesh(new THREE.SphereGeometry(.085, 24, 16), sunMarkerMaterial);
+    const localSun = createSun(.16);
+    const sunMarker = localSun.group;
     earthSystem.add(sunMarker);
     const sunlightRays = [-.58, -.29, 0, .29, .58].map((offset) => {
       const arrow = new THREE.ArrowHelper(
@@ -653,9 +655,9 @@ export default function EarthScene(props: EarthSceneProps) {
         crossingArrows[half].position.copy(normal).multiplyScalar(1.06);
         crossingArrows[half].setDirection(new THREE.Vector3().crossVectors(axisDirection, normal).normalize());
       });
-      orbitRay.position.copy(earthSystem.position).normalize().multiplyScalar(.55);
+      orbitRay.position.copy(earthSystem.position).normalize().multiplyScalar(sunRadius + .05);
       orbitRay.setDirection(earthSystem.position.clone().normalize());
-      orbitRay.setLength(2.43, .16, .08);
+      orbitRay.setLength(4 - sunRadius - 1.07, .16, .08);
       sunlightRays.forEach(({arrow}) => { arrow.visible = !config.solar; });
       sunMarker.visible = !config.solar;
       const incomingDirection = sunDirection.clone().negate();
@@ -668,6 +670,8 @@ export default function EarthScene(props: EarthSceneProps) {
       sunMarker.position.copy(sunDirection).multiplyScalar(2.72);
 
       controls.update();
+      solarSun.glow.quaternion.copy(camera.quaternion);
+      localSun.glow.quaternion.copy(camera.quaternion);
       renderer.render(scene, camera);
 
       const width = host.clientWidth;
@@ -706,7 +710,7 @@ export default function EarthScene(props: EarthSceneProps) {
         }
         project(element, best.multiplyScalar(config.solar ? 1.48 : 1.18), camera, width, height, score > .04);
       });
-      if (config.solar) setProjectedPosition(sunRef.current, new THREE.Vector3(0,.7,0), camera, width, height);
+      if (config.solar) setProjectedPosition(sunRef.current, new THREE.Vector3(0,sunRadius + .35,0), camera, width, height);
       else project(sunRef.current, sunMarker.position, camera, width, height);
       if (sunRef.current) sunRef.current.textContent = config.solar ? '太阳 · 公转中心' : '太阳平行光';
       project(
@@ -771,8 +775,8 @@ export default function EarthScene(props: EarthSceneProps) {
       directArrowConeMaterial.dispose();
       directTarget.geometry.dispose();
       directTargetMaterial.dispose();
-      sunMarker.geometry.dispose();
-      sunMarkerMaterial.dispose();
+      solarSun.dispose();
+      localSun.dispose();
       sunlightRays.forEach(({ arrow }) => {
         arrow.line.geometry.dispose();
         (arrow.line.material as THREE.Material).dispose();

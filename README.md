@@ -26,3 +26,7 @@ pnpm dev
 ## 发布
 
 GitHub 保存源代码。在线地址由 Sites 管理；GitHub 提交不会自动触发 Sites 发布。需要将相同源代码推送至该 Site 的源代码仓库，构建后保存版本并发布。
+
+## 太阳纹理
+
+`public/sun-surface.jpg` 来自 [Solar System Scope](https://www.solarsystemscope.com/textures/) 的 2K Sun 球面纹理，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 使用。渲染中进行了颜色混合和临边昏暗处理，并增加示意光晕；不是实时太阳观测影像。太阳显示半径 1.9、地球显示半径 1，是为课堂观察保留地球细节的示意比例。真实直径比约 109，参见 [NASA](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)。

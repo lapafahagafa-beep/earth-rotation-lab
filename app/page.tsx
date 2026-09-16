@@ -368,8 +368,9 @@ export default function Home() {
             onFreeView={() => setActiveView('free')}
           />
 
-          <div className="boundary-legend"><span>━ 晨线：夜→昼</span><span>━ 昏线：昼→夜</span><small>箭头为当地自西向东自转方向 · 交接端点为相切点</small>{solar && <small>日地大小、距离与速度为教学示意，未按真实比例</small>}{solar && <small className="latitude-legend">橙色实线：赤道 0° · 橙色虚线：回归线 ±23.5°{showPolar && ' · 绿色虚线：极圈 ±66.5°'}</small>}</div>
+          <div className="boundary-legend"><span>━ 晨线：夜→昼</span><span>━ 昏线：昼→夜</span><small>箭头为当地自西向东自转方向 · 交接端点为相切点</small>{solar && <small>太阳直径实际约为地球的 109 倍；地球已放大，距离与速度为教学示意</small>}{solar && <small className="latitude-legend">橙色实线：赤道 0° · 橙色虚线：回归线 ±23.5°{showPolar && ' · 绿色虚线：极圈 ±66.5°'}</small>}</div>
           <div className="stage-note"><span className="pulse" /><div><strong>{term} · {formatDeclination(astronomy.declination)}</strong><p>{astronomy.note}</p></div></div>
+          <a className="sun-credit" href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">太阳纹理：Solar System Scope · CC BY 4.0</a>
           <div className="axis-badge"><span>23.5°</span><small>地轴倾角固定</small></div>
           <div className="scale-markers" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         </div>
