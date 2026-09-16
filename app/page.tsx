@@ -81,6 +81,8 @@ function astronomyFor(day: number) {
 }
 
 export default function Home() {
+  const [solar, setSolar] = useState(false);
+  const [showPolar, setShowPolar] = useState(true);
   const [day, setDay] = useState(0);
   const dayRef = useRef(day);
   const [view, setView] = useState<ViewMode>('equator');
@@ -190,18 +192,14 @@ export default function Home() {
       dayRef.current = 0;
       setDay(0);
     }
-    setAnnualPlaying((playing) => {
-      if (!playing) {
-        setAutoRotate(true);
-        setSpinPaused(false);
-      }
-      return !playing;
-    });
+    setAnnualPlaying(playing => !playing);
   };
 
   const resetAll = () => {
     dayRef.current = 0;
     setDay(0);
+    setSolar(false);
+    setShowPolar(true);
     setView('equator');
     setActiveView('equator');
     setViewRequest((value) => value + 1);
@@ -244,6 +242,14 @@ export default function Home() {
             <h2>观察控制台</h2>
           </div>
 
+          <div className="scene-tabs" aria-label="模型视图">
+            <button aria-pressed={!solar} onClick={() => {setSolar(false); setControlsOpen(false);}}>地球视角</button>
+            <button aria-pressed={solar} onClick={() => {setSolar(true); setControlsOpen(false);}}>太阳中心视角</button>
+          </div>
+          <label className="polar-toggle"><input type="checkbox" checked={showPolar} onChange={e => setShowPolar(e.target.checked)} />显示南北极圈（66.5°）</label>
+          <div className="season-presets"><strong>一键定格节气</strong><div>
+            {QUARTERS.slice(0,4).map(q => <button key={q.name} aria-pressed={Math.abs(day-q.day)<.01} onClick={() => {selectDay(q.day); setSpinPaused(true);}}>{q.name}</button>)}
+          </div></div>
           <div className="control-section">
             <div className="section-label"><span>01</span><label>切换视角</label></div>
             <div className="segmented view-buttons">
@@ -276,7 +282,7 @@ export default function Home() {
                 aria-pressed={autoRotate}
                 onClick={() => { setAutoRotate((value) => !value); setSpinPaused(false); }}
               >
-                <i className="status-dot" /> 自动旋转 <b>{autoRotate ? 'ON' : 'OFF'}</b>
+                <i className="status-dot" /> 地球自转 <b>{autoRotate ? 'ON' : 'OFF'}</b>
               </button>
               <button
                 type="button"
@@ -323,7 +329,7 @@ export default function Home() {
 
           <button className={`play-button ${annualPlaying ? 'playing' : ''}`} type="button" aria-pressed={annualPlaying} onClick={toggleAnnual}>
             <span aria-hidden="true">{annualPlaying ? 'Ⅱ' : '▶'}</span>
-            <strong>{annualPlaying ? '暂停全年变化' : day >= 364.9 ? '重新播放全年变化' : '播放全年变化'}</strong>
+            <strong>{annualPlaying ? '暂停公转' : day >= 364.9 ? '重新播放公转' : '播放公转'}</strong>
             <i aria-hidden="true">→</i>
           </button>
 
@@ -343,13 +349,15 @@ export default function Home() {
         <div className="stage" aria-label="地球昼夜三维模拟区">
           <div className="stage-grid" aria-hidden="true" />
           <div className="stage-toolbar">
-            <div className="view-indicator"><i /> 当前视角 <strong>{activeView === 'free' ? '自由视角' : VIEW_LABELS[activeView]}</strong></div>
+            <div className="view-indicator"><i /> 当前视角 <strong>{solar ? '太阳中心视角' : activeView === 'free' ? '自由视角' : VIEW_LABELS[activeView]}</strong></div>
             <div className="interaction-hints" aria-label="交互提示">
               <span>↔ 拖拽旋转</span><span>⌁ 滚轮缩放</span>
             </div>
           </div>
 
           <EarthScene
+            solar={solar}
+            showPolar={showPolar}
             day={day}
             view={view}
             viewRequest={viewRequest}
@@ -360,6 +368,7 @@ export default function Home() {
             onFreeView={() => setActiveView('free')}
           />
 
+          <div className="boundary-legend"><span>━ 晨线：夜→昼</span><span>━ 昏线：昼→夜</span><small>箭头为当地自西向东自转方向 · 交接端点为相切点</small>{solar && <small>日地大小、距离与速度为教学示意，未按真实比例</small>}{solar && <small className="latitude-legend">橙色实线：赤道 0° · 橙色虚线：回归线 ±23.5°{showPolar && ' · 绿色虚线：极圈 ±66.5°'}</small>}</div>
           <div className="stage-note"><span className="pulse" /><div><strong>{term} · {formatDeclination(astronomy.declination)}</strong><p>{astronomy.note}</p></div></div>
           <div className="axis-badge"><span>23.5°</span><small>地轴倾角固定</small></div>
           <div className="scale-markers" aria-hidden="true"><i /><i /><i /><i /><i /></div>

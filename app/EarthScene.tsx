@@ -6,12 +6,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { declinationForCalendarDay } from './astronomy';
+import { declinationForCalendarDay, orbitPosition, terminatorPoint, type Vector } from './astronomy';
 
 export type ViewMode = 'equator' | 'north' | 'south';
 
 type EarthSceneProps = {
   day: number;
+  solar: boolean;
+  showPolar: boolean;
   view: ViewMode;
   viewRequest: number;
   autoRotate: boolean;
@@ -24,6 +26,8 @@ type EarthSceneProps = {
 type SceneConfig = EarthSceneProps;
 
 const LATITUDE_GUIDES = [
+  { latitude: 66.5, label: '北极圈 · 66.5°N', kind: 'polar', longitudeOffset: .65 },
+  { latitude: -66.5, label: '南极圈 · 66.5°S', kind: 'polar', longitudeOffset: .65 },
   { latitude: 60, label: '北纬 60°', kind: 'degree', longitudeOffset: -.88 },
   { latitude: 30, label: '北纬 30°', kind: 'degree', longitudeOffset: -.88 },
   { latitude: 23.5, label: '北回归线 · 23.5°N', kind: 'tropic', longitudeOffset: .88 },
@@ -176,11 +180,11 @@ function makeGrid() {
   return grid;
 }
 
-function makeLatitudeGuide(latitude: number, kind: 'degree' | 'tropic' | 'equator') {
+function makeLatitudeGuide(latitude: number, kind: 'degree' | 'tropic' | 'equator' | 'polar') {
   const radians = THREE.MathUtils.degToRad(latitude);
   const surfaceRadius = 1.013;
   const ringRadius = Math.cos(radians) * surfaceRadius;
-  if (kind === 'tropic') {
+  if (kind === 'tropic' || kind === 'polar') {
     const positions: number[] = [];
     for (let segment = 0; segment <= 192; segment += 1) {
       const angle = segment / 192 * Math.PI * 2;
@@ -195,7 +199,7 @@ function makeLatitudeGuide(latitude: number, kind: 'degree' | 'tropic' | 'equato
     const line = new Line2(
       geometry,
       new LineMaterial({
-        color: 0xff9a61,
+        color: kind === 'polar' ? 0x8bf1c0 : 0xff9a61,
         linewidth: 2.6,
         dashed: true,
         transparent: true,
@@ -246,6 +250,7 @@ export default function EarthScene(props: EarthSceneProps) {
   const northRef = useRef<HTMLSpanElement>(null);
   const southRef = useRef<HTMLSpanElement>(null);
   const directRef = useRef<HTMLSpanElement>(null);
+  const duskRef = useRef<HTMLSpanElement>(null);
   const terminatorRef = useRef<HTMLSpanElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
   const directRayRef = useRef<HTMLSpanElement>(null);
@@ -279,6 +284,8 @@ export default function EarthScene(props: EarthSceneProps) {
     else host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    const earthSystem = new THREE.Group();
+    scene.add(earthSystem);
     const camera = new THREE.PerspectiveCamera(34, 1, .1, 100);
     camera.position.set(0, .15, 4.25);
 
@@ -353,7 +360,7 @@ export default function EarthScene(props: EarthSceneProps) {
 
     const tiltGroup = new THREE.Group();
     tiltGroup.rotation.z = THREE.MathUtils.degToRad(-23.5);
-    scene.add(tiltGroup);
+    earthSystem.add(tiltGroup);
 
     const spinGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
@@ -392,7 +399,7 @@ export default function EarthScene(props: EarthSceneProps) {
         }
       `,
     });
-    scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.13, 72, 48), atmosphereMaterial));
+    earthSystem.add(new THREE.Mesh(new THREE.SphereGeometry(1.13, 72, 48), atmosphereMaterial));
 
     const axisMaterial = new THREE.MeshBasicMaterial({ color: 0x8eeaff, transparent: true, opacity: .68 });
     const axis = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, 2.92, 8), axisMaterial);
@@ -401,26 +408,31 @@ export default function EarthScene(props: EarthSceneProps) {
     northCap.position.y = 1.06;
     tiltGroup.add(northCap);
 
-    const terminatorPositions: number[] = [];
-    for (let index = 0; index <= 180; index += 1) {
-      const angle = index / 180 * Math.PI * 2;
-      terminatorPositions.push(Math.cos(angle) * 1.012, Math.sin(angle) * 1.012, 0);
-    }
-    const terminatorGeometry = new LineGeometry();
-    terminatorGeometry.setPositions(terminatorPositions);
-    const terminator = new Line2(
-      terminatorGeometry,
-      new LineMaterial({
-        color: 0x67ddff,
-        linewidth: 3.3,
-        transparent: true,
-        opacity: .68,
-        depthTest: true,
-        depthWrite: false,
-        alphaToCoverage: true,
-      }),
-    );
-    scene.add(terminator);
+    const makeBoundary = (color: number) => {
+      const geometry = new LineGeometry();
+      geometry.setPositions([0, 0, 0, 0, 1, 0]);
+      const line = new Line2(geometry, new LineMaterial({ color, linewidth: 3.5, depthWrite: false }));
+      earthSystem.add(line);
+      return line;
+    };
+    const terminator = makeBoundary(0x49e2ff);
+    const dusk = makeBoundary(0xff71be);
+    const crossingArrows = [0x49e2ff, 0xff71be].map(color => {
+      const arrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), .32, color, .10, .055);
+      earthSystem.add(arrow);
+      return arrow;
+    });
+    const orbit = new THREE.Group();
+    scene.add(orbit);
+    const orbitPoints = Array.from({length: 257}, (_, i) => new THREE.Vector3(-4*Math.sin(i/256*Math.PI*2), 0, -4*Math.cos(i/256*Math.PI*2)));
+    orbit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPoints), new THREE.LineBasicMaterial({color: 0x647c9c})));
+    const solarSun = new THREE.Mesh(new THREE.SphereGeometry(.5, 48, 32), new THREE.MeshBasicMaterial({color: 0xffbf43}));
+    orbit.add(solarSun);
+    const orbitRay = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 3, 0xffb347, .18, .10);
+    orbit.add(orbitRay);
+    const orbitArrow = new THREE.ArrowHelper(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-4), .7, 0xa2b6d1, .18, .1);
+    orbit.add(orbitArrow);
+    let lastSolar: boolean | null = null;
 
     const directPointArrow = new THREE.ArrowHelper(
       new THREE.Vector3(-1, 0, 0),
@@ -436,7 +448,7 @@ export default function EarthScene(props: EarthSceneProps) {
     directArrowLineMaterial.opacity = .98;
     directArrowConeMaterial.transparent = true;
     directArrowConeMaterial.opacity = 1;
-    scene.add(directPointArrow);
+    earthSystem.add(directPointArrow);
 
     const directTargetMaterial = new THREE.MeshBasicMaterial({
       color: 0xffa26f,
@@ -446,13 +458,13 @@ export default function EarthScene(props: EarthSceneProps) {
       depthWrite: false,
     });
     const directTarget = new THREE.Mesh(new THREE.RingGeometry(.036, .062, 32), directTargetMaterial);
-    scene.add(directTarget);
+    earthSystem.add(directTarget);
     const directTargetPosition = new THREE.Vector3(1.022, 0, 0);
     const surfaceNormal = new THREE.Vector3(0, 0, 1);
 
     const sunMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0xffad62 });
     const sunMarker = new THREE.Mesh(new THREE.SphereGeometry(.085, 24, 16), sunMarkerMaterial);
-    scene.add(sunMarker);
+    earthSystem.add(sunMarker);
     const sunlightRays = [-.58, -.29, 0, .29, .58].map((offset) => {
       const arrow = new THREE.ArrowHelper(
         new THREE.Vector3(-1, 0, 0),
@@ -468,7 +480,7 @@ export default function EarthScene(props: EarthSceneProps) {
       coneMaterial.transparent = true;
       lineMaterial.opacity = offset === 0 ? .92 : .42;
       coneMaterial.opacity = offset === 0 ? .95 : .56;
-      scene.add(arrow);
+      earthSystem.add(arrow);
       return { arrow, offset };
     });
 
@@ -477,7 +489,7 @@ export default function EarthScene(props: EarthSceneProps) {
     const inverseTiltQuaternion = tiltGroup.quaternion.clone().invert();
     const northPoint = axisDirection.clone().multiplyScalar(1.22);
     const southPoint = axisDirection.clone().multiplyScalar(-1.22);
-    const baseTerminatorNormal = new THREE.Vector3(0, 0, 1);
+
     const cameraAxis = new THREE.Vector3(0, 1, 0);
     let previousTime = performance.now();
     const desiredPosition = new THREE.Vector3();
@@ -499,7 +511,10 @@ export default function EarthScene(props: EarthSceneProps) {
     } | null = null;
 
     const viewTarget = (mode: ViewMode) => {
-      if (mode === 'north') {
+      if (configRef.current.solar) {
+        desiredPosition.set(6, 8, 10);
+        desiredUp.set(0, 1, 0);
+      } else if (mode === 'north') {
         desiredPosition.copy(axisDirection).multiplyScalar(4.15);
         desiredUp.set(0, 0, -1);
       } else if (mode === 'south') {
@@ -548,6 +563,8 @@ export default function EarthScene(props: EarthSceneProps) {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      [terminator, dusk].forEach(line => line.material.resolution.set(width, height));
+      latitudeGuideMeshes.forEach(line => { if (line instanceof Line2) line.material.resolution.set(width, height); });
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(host);
@@ -573,6 +590,17 @@ export default function EarthScene(props: EarthSceneProps) {
       const delta = Math.min((time - previousTime) / 1000, .05);
       previousTime = time;
 
+      if (config.solar !== lastSolar) {
+        lastSolar = config.solar;
+        controls.minDistance = config.solar ? 9 : 2.45;
+        controls.maxDistance = config.solar ? 26 : 6;
+        cameraMove = null;
+        camera.position.set(...(config.solar ? [6,8,10] : [0,.15,4.25]) as [number,number,number]);
+        camera.up.set(0,1,0);
+        controls.update();
+      }
+      orbit.visible = config.solar;
+      earthSystem.position.set(...(config.solar ? orbitPosition(config.day) : [0,0,0]) as Vector);
       if (config.viewRequest !== lastViewRequest) {
         lastViewRequest = config.viewRequest;
         viewTarget(config.view);
@@ -604,7 +632,7 @@ export default function EarthScene(props: EarthSceneProps) {
 
       const declinationDegrees = declinationForCalendarDay(config.day);
       const declination = THREE.MathUtils.degToRad(declinationDegrees);
-      const sunDirection = equatorDirection.clone().multiplyScalar(Math.cos(declination))
+      const sunDirection = config.solar ? earthSystem.position.clone().negate().normalize() : equatorDirection.clone().multiplyScalar(Math.cos(declination))
         .add(axisDirection.clone().multiplyScalar(Math.sin(declination))).normalize();
       material.uniforms.sunDirection.value.copy(sunDirection);
       directTargetPosition.copy(sunDirection).multiplyScalar(1.022);
@@ -613,7 +641,23 @@ export default function EarthScene(props: EarthSceneProps) {
       directPointArrow.setLength(.5, .19, .105);
       directTarget.position.copy(directTargetPosition);
       directTarget.quaternion.setFromUnitVectors(surfaceNormal, sunDirection);
-      terminator.quaternion.setFromUnitVectors(baseTerminatorNormal, sunDirection);
+      const sunVector = sunDirection.toArray() as Vector;
+      [terminator, dusk].forEach((line, half) => {
+        const positions: number[] = [];
+        for (let i=0; i<=128; i++) {
+          const angle = -Math.PI/2 + i/128*Math.PI + half*Math.PI;
+          positions.push(...terminatorPoint(sunVector, angle).map(v => v*1.014));
+        }
+        line.geometry.setPositions(positions);
+        const normal = new THREE.Vector3(...terminatorPoint(sunVector, half*Math.PI));
+        crossingArrows[half].position.copy(normal).multiplyScalar(1.06);
+        crossingArrows[half].setDirection(new THREE.Vector3().crossVectors(axisDirection, normal).normalize());
+      });
+      orbitRay.position.copy(earthSystem.position).normalize().multiplyScalar(.55);
+      orbitRay.setDirection(earthSystem.position.clone().normalize());
+      orbitRay.setLength(2.43, .16, .08);
+      sunlightRays.forEach(({arrow}) => { arrow.visible = !config.solar; });
+      sunMarker.visible = !config.solar;
       const incomingDirection = sunDirection.clone().negate();
       const beamOffsetDirection = new THREE.Vector3().crossVectors(sunDirection, axisDirection).normalize();
       sunlightRays.forEach(({ arrow, offset }) => {
@@ -628,18 +672,19 @@ export default function EarthScene(props: EarthSceneProps) {
 
       const width = host.clientWidth;
       const height = host.clientHeight;
-      const cameraDirection = camera.position.clone().normalize();
+      const cameraDirection = camera.position.clone().sub(earthSystem.position).normalize();
+      const project = (element: HTMLElement | null, point: THREE.Vector3, cam: THREE.Camera, w: number, h: number, visible = true) => setProjectedPosition(element, point.clone().add(earthSystem.position), cam, w, h, visible);
       const localCameraDirection = cameraDirection.clone().applyQuaternion(inverseTiltQuaternion);
       const equatorialCameraLength = Math.hypot(localCameraDirection.x, localCameraDirection.z);
       if (equatorialCameraLength > .05) {
         stableFrontLongitude = Math.atan2(localCameraDirection.z, localCameraDirection.x);
       }
       const northFacing = axisDirection.dot(cameraDirection);
-      setProjectedPosition(northRef.current, northPoint, camera, width, height, northFacing > -.14);
-      setProjectedPosition(southRef.current, southPoint, camera, width, height, northFacing < .14);
-      setProjectedPosition(
+      project(northRef.current, northPoint.clone().multiplyScalar(config.solar ? 1.25 : 1), camera, width, height, northFacing > -.14);
+      project(southRef.current, southPoint, camera, width, height, !config.solar && northFacing < .14);
+      project(
         directRef.current,
-        sunDirection.clone().multiplyScalar(1.32).addScaledVector(beamOffsetDirection, .1),
+        sunDirection.clone().multiplyScalar(config.solar ? 1.9 : 1.32).addScaledVector(beamOffsetDirection, .1),
         camera,
         width,
         height,
@@ -651,18 +696,29 @@ export default function EarthScene(props: EarthSceneProps) {
           : `${Math.abs(declinationDegrees).toFixed(1)}°${declinationDegrees > 0 ? 'N' : 'S'}`;
         directRef.current.textContent = `太阳直射点 · ${latitude}`;
       }
-      const tangent = new THREE.Vector3().crossVectors(sunDirection, camera.position.clone().normalize()).normalize();
-      const terminatorLabelPoint = tangent.multiplyScalar(-1.12);
-      setProjectedPosition(terminatorRef.current, terminatorLabelPoint, camera, width, height);
-      setProjectedPosition(sunRef.current, sunMarker.position, camera, width, height);
-      setProjectedPosition(
+      [terminatorRef.current, duskRef.current].forEach((element, half) => {
+        // Select a visible point strictly inside this physical half, never screen left/right.
+        let best = new THREE.Vector3(); let score = -Infinity;
+        for (let i=1; i<32; i++) {
+          const n = new THREE.Vector3(...terminatorPoint(sunVector, -Math.PI/2+i/32*Math.PI+half*Math.PI));
+          const facing = n.dot(cameraDirection);
+          if (facing > score) { score = facing; best = n; }
+        }
+        project(element, best.multiplyScalar(config.solar ? 1.48 : 1.18), camera, width, height, score > .04);
+      });
+      if (config.solar) setProjectedPosition(sunRef.current, new THREE.Vector3(0,.7,0), camera, width, height);
+      else project(sunRef.current, sunMarker.position, camera, width, height);
+      if (sunRef.current) sunRef.current.textContent = config.solar ? '太阳 · 公转中心' : '太阳平行光';
+      project(
         directRayRef.current,
         sunDirection.clone().multiplyScalar(1.72).addScaledVector(beamOffsetDirection, -.12),
         camera,
         width,
         height,
+        !config.solar,
       );
       LATITUDE_GUIDES.forEach((guide, index) => {
+        latitudeGuideMeshes[index].visible = guide.kind !== 'polar' || config.showPolar;
         const latitude = THREE.MathUtils.degToRad(guide.latitude);
         const longitude = stableFrontLongitude + guide.longitudeOffset;
         const point = new THREE.Vector3(
@@ -671,13 +727,13 @@ export default function EarthScene(props: EarthSceneProps) {
           Math.sin(longitude) * Math.cos(latitude),
         ).applyQuaternion(tiltGroup.quaternion).normalize();
         const facing = point.dot(cameraDirection);
-        setProjectedPosition(
+        project(
           latitudeRefs.current[index],
           point.clone().multiplyScalar(1.075),
           camera,
           width,
           height,
-          facing > -.02,
+          facing > -.02 && (guide.kind !== 'polar' || config.showPolar) && !config.solar,
         );
       });
     };
@@ -701,6 +757,14 @@ export default function EarthScene(props: EarthSceneProps) {
       });
       terminator.geometry.dispose();
       terminator.material.dispose();
+      dusk.geometry.dispose();
+      dusk.material.dispose();
+      scene.traverse(object => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach(m => m?.dispose());
+      });
       directPointArrow.line.geometry.dispose();
       directArrowLineMaterial.dispose();
       directPointArrow.cone.geometry.dispose();
@@ -724,7 +788,8 @@ export default function EarthScene(props: EarthSceneProps) {
       <span className="scene-label pole-label" ref={northRef}>北极点</span>
       <span className="scene-label pole-label" ref={southRef}>南极点</span>
       <span className="scene-label direct-label" ref={directRef}>太阳直射点</span>
-      <span className="scene-label terminator-label" ref={terminatorRef}>晨昏线</span>
+      <span className="scene-label terminator-label" ref={terminatorRef}>晨线 · 夜→昼</span>
+      <span className="scene-label dusk-label" ref={duskRef}>昏线 · 昼→夜</span>
       <span className="scene-label sun-ray-label" ref={sunRef}>太阳平行光</span>
       <span className="scene-label direct-ray-label" ref={directRayRef}>太阳直射光线</span>
       {LATITUDE_GUIDES.map((guide, index) => (

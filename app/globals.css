@@ -351,3 +351,22 @@ button:disabled { cursor: not-allowed; opacity: .35; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+.scene-tabs { display:flex; gap:6px; margin-bottom:14px; }
+.scene-tabs button, .season-presets button { flex:1; padding:10px 5px; background:#102436; color:#bdcedf; border:1px solid #36536b; border-radius:7px; font-size:14px; cursor:pointer; }
+.scene-tabs button[aria-pressed=true], .season-presets button[aria-pressed=true] { background:#086982; color:white; border-color:#63e2ff; }
+.polar-toggle { display:flex; gap:8px; align-items:center; font-size:14px; color:#8bf1c0; margin:12px 0; }
+.polar-toggle input { width:18px; height:18px; accent-color:#49cfa0; }
+.season-presets { font-size:14px; margin:16px 0; color:#e6c897; }
+.season-presets > div { display:flex; gap:6px; margin-top:10px; }
+.boundary-legend { position:absolute; top:54px; left:18px; z-index:9; display:flex; flex-wrap:wrap; gap:8px 18px; max-width:580px; padding:9px 12px; border-radius:7px; background:#04101edb; pointer-events:none; font-size:14px; }
+.boundary-legend span:first-child, .terminator-label { color:#49e2ff; }
+.boundary-legend span:nth-child(2), .dusk-label { color:#ff71be; }
+.boundary-legend small { width:100%; color:#a9bace; font-size:12px; }
+.latitude-label.polar { color:#8bf1c0; border-color:#8bf1c066; }
+.latitude-label.polar::before { background:#8bf1c0; }
+.dusk-label::before { background:#ff71be; }
+@media (max-width:560px) { .boundary-legend { left:10px; right:10px; top:44px; font-size:12px; } }
+
+@media (min-width:901px) { .sim-header { grid-template-columns:1fr auto; } .header-center { grid-column:1; } .sim-header h1 { white-space:nowrap; } }
+.latitude-legend { color:#cfdfde !important; }
