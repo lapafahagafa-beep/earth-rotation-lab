@@ -393,10 +393,10 @@ button:disabled { cursor: not-allowed; opacity: .35; }
 .direct-leader { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:4; overflow:hidden; }
 .direct-leader line { stroke:#ffb18b; stroke-width:1; opacity:0; }
 
-.city-point { position:absolute; left:0; top:0; width:22px; height:22px; padding:0; border:0; background:transparent; border-radius:50%; z-index:12; cursor:pointer; visibility:hidden; touch-action:manipulation; }
-.city-point i { display:block; width:8px; height:8px; margin:auto; background:#fff5cf; border:1px solid #222b39; border-radius:50%; box-shadow:0 0 0 2px #ffffff55,0 0 7px #ffe9a2; }
-.city-point.selected i { background:#fff; box-shadow:0 0 0 3px #ffcc66aa; }
+.city-point { position:absolute; left:0; top:0; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; background:transparent; border-radius:50%; z-index:12; cursor:pointer; visibility:hidden; touch-action:manipulation; }
+.city-point i { display:block; width:14px; height:14px; margin:auto; background:#fff; border:3px solid #10263e; border-radius:50%; box-shadow:0 0 0 2px #ffdc73,0 0 12px 3px #ffd45b99; transition:box-shadow .15s ease; }
+.city-point:hover i, .city-point:focus-visible i, .city-point.selected i { background:#ffdc73; box-shadow:0 0 0 3px #fff,0 0 0 5px #10263e,0 0 16px 5px #ffd45baa; }
 .city-point:focus-visible { outline:2px solid #fff; outline-offset:3px; }
-.city-name { position:absolute; top:25px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#fff4cc; background:#061322ee; padding:5px 9px; border:1px solid #ceb36d; border-radius:5px; font-size:14px; pointer-events:none; }
+.city-name { position:absolute; top:35px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#fff4cc; background:#061322ee; padding:5px 9px; border:1px solid #ceb36d; border-radius:5px; font-size:14px; pointer-events:none; }
 /* Let the fixed mobile panel sit above the page-level dismiss backdrop. */
 @media(max-width:900px) { .workspace { z-index:auto; } }
