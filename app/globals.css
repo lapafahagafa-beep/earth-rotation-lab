@@ -398,3 +398,5 @@ button:disabled { cursor: not-allowed; opacity: .35; }
 .city-point.selected i { background:#fff; box-shadow:0 0 0 3px #ffcc66aa; }
 .city-point:focus-visible { outline:2px solid #fff; outline-offset:3px; }
 .city-name { position:absolute; top:25px; left:50%; transform:translateX(-50%); white-space:nowrap; color:#fff4cc; background:#061322ee; padding:5px 9px; border:1px solid #ceb36d; border-radius:5px; font-size:14px; pointer-events:none; }
+/* Let the fixed mobile panel sit above the page-level dismiss backdrop. */
+@media(max-width:900px) { .workspace { z-index:auto; } }
