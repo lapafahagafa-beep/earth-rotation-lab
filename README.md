@@ -30,3 +30,9 @@ GitHub 保存源代码。在线地址由 Sites 管理；GitHub 提交不会自�
 ## 太阳纹理
 
 `public/sun-surface.jpg` 来自 [Solar System Scope](https://www.solarsystemscope.com/textures/) 的 2K Sun 球面纹理，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 使用。渲染中进行了颜色混合和临边昏暗处理，并增加示意光晕；不是实时太阳观测影像。太阳显示半径 1.5、地球显示半径 1、公转轨道半径 5，是为课堂观察保留地球细节的示意比例。真实直径比约 109，参见 [NASA](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)。
+
+## 城市点与控制台
+
+白色位置点对应北京、喀什、广州、华盛顿（美国首都）。城市名称默认隐藏，点击点显示，再次点击隐藏；位置点随地球纹理、自转和地轴一起运动，地球背面的点不显示。城市坐标为市中心近似值，不是行政区边界。
+
+右上角“隐藏控制台 / 显示控制台”按钮控制左侧面板；手机继续使用“控制台”和关闭按钮。取消拖拽分隔条。“完整显示”可恢复完整视野。太阳直射点文字自动避开球体，以细引线连接实际位置。

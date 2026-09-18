@@ -9,6 +9,13 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { declinationForCalendarDay, orbitPosition, terminatorPoint, type Vector } from './astronomy';
 
+const CITIES = [
+  {name:'北京', lat:39.907, lon:116.3975},
+  {name:'喀什', lat:39.45, lon:75.9833},
+  {name:'广州', lat:23.117, lon:113.25},
+  {name:'华盛顿', lat:38.9072, lon:-77.0369},
+] as const;
+
 export type ViewMode = 'equator' | 'north' | 'south';
 
 type EarthSceneProps = {
@@ -247,9 +254,12 @@ function setProjectedPosition(
 }
 
 export default function EarthScene(props: EarthSceneProps) {
+  const [selectedCity, setSelectedCity] = useState<number | null>(null);
+  const cityRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const hostRef = useRef<HTMLDivElement>(null);
   const northRef = useRef<HTMLSpanElement>(null);
   const southRef = useRef<HTMLSpanElement>(null);
+  const leaderRef = useRef<SVGLineElement>(null);
   const directRef = useRef<HTMLSpanElement>(null);
   const duskRef = useRef<HTMLSpanElement>(null);
   const terminatorRef = useRef<HTMLSpanElement>(null);
@@ -368,6 +378,12 @@ export default function EarthScene(props: EarthSceneProps) {
     const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), material);
     earth.rotation.y = -.45;
     spinGroup.add(earth);
+    // Texture longitude convention: u=(longitude+180)/360 on Three's SphereGeometry.
+    // Attach to the Earth mesh so texture rotation, spin and tilt all stay aligned.
+    const cityPoints = CITIES.map(city => {
+      const lat=THREE.MathUtils.degToRad(city.lat), lon=THREE.MathUtils.degToRad(city.lon);
+      return new THREE.Vector3(Math.cos(lat)*Math.cos(lon), Math.sin(lat), -Math.cos(lat)*Math.sin(lon));
+    });
     spinGroup.add(makeGrid());
     const latitudeGuideMeshes = LATITUDE_GUIDES.map((guide) => {
       const ring = makeLatitudeGuide(guide.latitude, guide.kind);
@@ -696,6 +712,17 @@ export default function EarthScene(props: EarthSceneProps) {
 
       const width = host.clientWidth;
       const height = host.clientHeight;
+      cityPoints.forEach((point, index) => {
+        const button=cityRefs.current[index];
+        if (!button) return;
+        const world=earth.localToWorld(point.clone().multiplyScalar(1.012));
+        const normal=world.clone().sub(earthSystem.position).normalize();
+        const visible=normal.dot(camera.position.clone().sub(world)) > .04;
+        setProjectedPosition(button,world,camera,width,height,visible);
+        const shown=button.style.opacity==='1';
+        button.style.visibility=shown?'visible':'hidden';
+        button.tabIndex=shown?0:-1;
+      });
       const cameraDirection = camera.position.clone().sub(earthSystem.position).normalize();
       const project = (element: HTMLElement | null, point: THREE.Vector3, cam: THREE.Camera, w: number, h: number, visible = true) => setProjectedPosition(element, point.clone().add(earthSystem.position), cam, w, h, visible);
       const localCameraDirection = cameraDirection.clone().applyQuaternion(inverseTiltQuaternion);
@@ -706,14 +733,6 @@ export default function EarthScene(props: EarthSceneProps) {
       const northFacing = axisDirection.dot(cameraDirection);
       project(northRef.current, northPoint.clone().multiplyScalar(config.solar ? 1.25 : 1), camera, width, height, northFacing > -.14);
       project(southRef.current, southPoint, camera, width, height, !config.solar && northFacing < .14);
-      project(
-        directRef.current,
-        sunDirection.clone().multiplyScalar(config.solar ? 1.9 : 1.32).addScaledVector(beamOffsetDirection, .1),
-        camera,
-        width,
-        height,
-        sunDirection.dot(cameraDirection) > -.06,
-      );
       if (directRef.current) {
         const latitude = Math.abs(declinationDegrees) < .05
           ? '0°'
@@ -760,6 +779,52 @@ export default function EarthScene(props: EarthSceneProps) {
           facing > -.02 && (guide.kind !== 'polar' || config.showPolar) && !config.solar,
         );
       });
+      // Place the callout outside both projected bodies. Its leader stops short of the marker.
+      const label = directRef.current;
+      const leader = leaderRef.current;
+      if (label && leader) {
+        const worldPoint = directTargetPosition.clone().add(earthSystem.position);
+        const projected = worldPoint.clone().project(camera);
+        const px = (projected.x * .5 + .5) * width;
+        const py = (-projected.y * .5 + .5) * height;
+        const visible = projected.z > -1 && projected.z < 1 && px > 0 && px < width && py > 0 && py < height
+          && sunDirection.dot(camera.position.clone().sub(worldPoint)) > 0;
+        const lw = label.offsetWidth, lh = label.offsetHeight;
+        const focal = height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+        const bodyBounds = (center: THREE.Vector3, radius: number) => {
+          const p = center.clone().project(camera);
+          const distance = camera.position.distanceTo(center);
+          const r = focal * radius / Math.sqrt(Math.max(.01, distance*distance-radius*radius)) * 1.15;
+          return {x:(p.x*.5+.5)*width, y:(-p.y*.5+.5)*height, r};
+        };
+        const bodies = [bodyBounds(earthSystem.position, 1.13)];
+        if (config.solar) bodies.push(bodyBounds(new THREE.Vector3(), sunRadius));
+        const hostBox = host.getBoundingClientRect();
+        const obstacles = Array.from(host.parentElement?.querySelectorAll<HTMLElement>('.boundary-legend, .stage-note, .axis-badge, .sun-credit, .scene-label:not(.direct-label), .city-name') ?? [])
+          .filter(el => el.style.opacity !== '0')
+          .map(el => { const r=el.getBoundingClientRect(); return {x:r.left-hostBox.left,y:r.top-hostBox.top,w:r.width,h:r.height}; });
+        let best: {x:number;y:number;score:number} | null = null;
+        for (let row=0; row<=8; row++) for (let col=0; col<=12; col++) {
+          const x=12+(width-lw-24)*col/12, y=70+(height-lh-150)*row/8;
+          if (x<8 || y<8 || x+lw>width-8 || y+lh>height-8) continue;
+          if (bodies.some(b => Math.hypot(Math.max(x-b.x,0,b.x-x-lw),Math.max(y-b.y,0,b.y-y-lh)) < b.r+16)) continue;
+          if (obstacles.some(b => x<b.x+b.w+6 && x+lw>b.x-6 && y<b.y+b.h+6 && y+lh>b.y-6)) continue;
+          const score=Math.hypot(x+lw/2-px,y+lh/2-py);
+          if (!best || score<best.score) best={x,y,score};
+        }
+        const show=visible && best!==null;
+        label.style.opacity=show?'1':'0';
+        leader.style.opacity=show?'.7':'0';
+        if (show && best) {
+          label.style.transform=`translate3d(${best.x}px, ${best.y}px, 0)`;
+          const x=Math.max(best.x, Math.min(best.x+lw,px));
+          const y=Math.max(best.y, Math.min(best.y+lh,py));
+          const length=Math.hypot(px-x,py-y);
+          leader.setAttribute('x1',String(x)); leader.setAttribute('y1',String(y));
+          leader.setAttribute('x2',String(px+(x-px)*Math.min(1,8/length)));
+          leader.setAttribute('y2',String(py+(y-py)*Math.min(1,8/length)));
+        }
+      }
     };
     animationFrame = requestAnimationFrame(animate);
 
@@ -809,6 +874,10 @@ export default function EarthScene(props: EarthSceneProps) {
 
   return (
     <div className="earth-scene" ref={hostRef}>
+      {CITIES.map((city,index) => <button key={city.name} ref={el => {cityRefs.current[index]=el;}} className={`city-point ${selectedCity===index?'selected':''}`} aria-label={selectedCity===index ? city.name : `位置点 ${index+1}，点击显示名称`} aria-pressed={selectedCity===index} onClick={() => setSelectedCity(value=>value===index?null:index)}>
+        <i aria-hidden="true" />{selectedCity===index && <span className="city-name">{city.name}</span>}
+      </button>)}
+      <svg className="direct-leader" aria-hidden="true"><line ref={leaderRef} /></svg>
       <span className="scene-label pole-label" ref={northRef}>北极点</span>
       <span className="scene-label pole-label" ref={southRef}>南极点</span>
       <span className="scene-label direct-label" ref={directRef}>太阳直射点</span>
