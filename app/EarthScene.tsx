@@ -513,9 +513,21 @@ export default function EarthScene(props: EarthSceneProps) {
       upTo: THREE.Vector3;
     } | null = null;
 
+    // Fit the projected orbit and Earth, rather than wasting space on a bounding sphere.
+    const solarFitDistance = (direction = new THREE.Vector3(7.2, 9.6, 12)) => {
+      const forward = direction.clone().normalize();
+      const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize();
+      const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+      const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      const planes = [right.clone().divideScalar(tanV * camera.aspect * .9), up.clone().divideScalar(tanV * .78)];
+      return Math.max(...planes.flatMap(plane => [-1, 1].map(sign => {
+        const normal = forward.clone().addScaledVector(plane, sign);
+        return orbitRadius * Math.hypot(normal.x, normal.z) + 1.35 * normal.length();
+      })));
+    };
     const viewTarget = (mode: ViewMode) => {
       if (configRef.current.solar) {
-        desiredPosition.set(7.2, 9.6, 12);
+        desiredPosition.set(7.2, 9.6, 12).setLength(solarFitDistance());
         desiredUp.set(0, 1, 0);
       } else if (mode === 'north') {
         desiredPosition.copy(axisDirection).multiplyScalar(4.15);
@@ -566,6 +578,12 @@ export default function EarthScene(props: EarthSceneProps) {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      if (configRef.current.solar) {
+        cameraMove = null;
+        camera.position.setLength(solarFitDistance(camera.position));
+        controls.maxDistance = Math.max(90, solarFitDistance()*2);
+        controls.update();
+      }
       [terminator, dusk].forEach(line => line.material.resolution.set(width, height));
       latitudeGuideMeshes.forEach(line => { if (line instanceof Line2) line.material.resolution.set(width, height); });
     };
@@ -596,9 +614,10 @@ export default function EarthScene(props: EarthSceneProps) {
       if (config.solar !== lastSolar) {
         lastSolar = config.solar;
         controls.minDistance = config.solar ? 9 : 2.45;
-        controls.maxDistance = config.solar ? 26 : 6;
+        controls.maxDistance = config.solar ? Math.max(90, solarFitDistance()*2) : 6;
         cameraMove = null;
         camera.position.set(...(config.solar ? [7.2,9.6,12] : [0,.15,4.25]) as [number,number,number]);
+        if (config.solar) camera.position.setLength(solarFitDistance());
         camera.up.set(0,1,0);
         controls.update();
       }
@@ -793,8 +812,8 @@ export default function EarthScene(props: EarthSceneProps) {
       <span className="scene-label pole-label" ref={northRef}>北极点</span>
       <span className="scene-label pole-label" ref={southRef}>南极点</span>
       <span className="scene-label direct-label" ref={directRef}>太阳直射点</span>
-      <span className="scene-label terminator-label" ref={terminatorRef}>晨线 · 夜→昼</span>
-      <span className="scene-label dusk-label" ref={duskRef}>昏线 · 昼→夜</span>
+      <span className="scene-label terminator-label" ref={terminatorRef}>晨线</span>
+      <span className="scene-label dusk-label" ref={duskRef}>昏线</span>
       <span className="scene-label sun-ray-label" ref={sunRef}>太阳平行光</span>
       <span className="scene-label direct-ray-label" ref={directRayRef}>太阳直射光线</span>
       {LATITUDE_GUIDES.map((guide, index) => (

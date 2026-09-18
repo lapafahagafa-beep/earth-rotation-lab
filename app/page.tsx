@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import EarthScene, { type ViewMode } from './EarthScene';
 import { declinationForCalendarDay } from './astronomy';
 
@@ -81,6 +81,9 @@ function astronomyFor(day: number) {
 }
 
 export default function Home() {
+  const [panelWidth, setPanelWidth] = useState(330);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const panelDrag = useRef<{x:number; width:number} | null>(null);
   const [solar, setSolar] = useState(false);
   const [showPolar, setShowPolar] = useState(true);
   const [day, setDay] = useState(0);
@@ -215,7 +218,7 @@ export default function Home() {
   };
 
   return (
-    <main className="sim-shell">
+    <main className={`sim-shell ${panelCollapsed ? 'panel-collapsed' : ''}`} style={{'--panel-width': `${panelWidth}px`} as CSSProperties}>
       <header className="sim-header">
         <button
           className="mobile-menu"
@@ -346,10 +349,19 @@ export default function Home() {
           </div>
         </aside>
 
+        <div className="panel-resizer" role="separator" aria-label="调整控制面板宽度" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={520} aria-valuenow={panelWidth} tabIndex={0}
+          onPointerDown={e => { panelDrag.current = {x:e.clientX, width:panelWidth}; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault(); }}
+          onPointerMove={e => { if (panelDrag.current) setPanelWidth(Math.max(240, Math.min(520, window.innerWidth*.45, panelDrag.current.width+e.clientX-panelDrag.current.x))); }}
+          onPointerUp={e => { panelDrag.current=null; e.currentTarget.releasePointerCapture(e.pointerId); }}
+          onPointerCancel={() => {panelDrag.current=null;}}
+          onLostPointerCapture={() => {panelDrag.current=null;}}
+          onKeyDown={e => { if (e.key==='ArrowLeft' || e.key==='ArrowRight') {e.preventDefault(); setPanelWidth(w => Math.max(240, Math.min(520, window.innerWidth*.45, w+(e.key==='ArrowRight'?20:-20))));} }}
+          title="左右拖动，调整面板宽度"><span /></div>
         <div className="stage" aria-label="地球昼夜三维模拟区">
           <div className="stage-grid" aria-hidden="true" />
           <div className="stage-toolbar">
             <div className="view-indicator"><i /> 当前视角 <strong>{solar ? '太阳中心视角' : activeView === 'free' ? '自由视角' : VIEW_LABELS[activeView]}</strong></div>
+            <div className="stage-actions"><button className="panel-collapse-button" aria-expanded={!panelCollapsed} onClick={() => setPanelCollapsed(v => !v)}>{panelCollapsed ? '展开控制面板' : '收起控制面板'}</button><button onClick={() => {setView('equator'); setActiveView('equator'); setViewRequest(v=>v+1);}}>完整显示</button></div>
             <div className="interaction-hints" aria-label="交互提示">
               <span>↔ 拖拽旋转</span><span>⌁ 滚轮缩放</span>
             </div>
@@ -368,7 +380,7 @@ export default function Home() {
             onFreeView={() => setActiveView('free')}
           />
 
-          <div className="boundary-legend"><span>━ 晨线：夜→昼</span><span>━ 昏线：昼→夜</span><small>箭头为当地自西向东自转方向 · 交接端点为相切点</small>{solar && <small>太阳直径实际约为地球的 109 倍；地球已放大，距离与速度为教学示意</small>}{solar && <small className="latitude-legend">橙色实线：赤道 0° · 橙色虚线：回归线 ±23.5°{showPolar && ' · 绿色虚线：极圈 ±66.5°'}</small>}</div>
+          <div className="boundary-legend"><span>━ 晨线</span><span>━ 昏线</span><small>箭头为当地自西向东自转方向 · 交接端点为相切点</small>{solar && <small>太阳直径实际约为地球的 109 倍；地球已放大，距离与速度为教学示意</small>}{solar && <small className="latitude-legend">橙色实线：赤道 0° · 橙色虚线：回归线 ±23.5°{showPolar && ' · 绿色虚线：极圈 ±66.5°'}</small>}</div>
           <div className="stage-note"><span className="pulse" /><div><strong>{term} · {formatDeclination(astronomy.declination)}</strong><p>{astronomy.note}</p></div></div>
           <a className="sun-credit" href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">太阳纹理：Solar System Scope · CC BY 4.0</a>
           <div className="axis-badge"><span>23.5°</span><small>地轴倾角固定</small></div>
